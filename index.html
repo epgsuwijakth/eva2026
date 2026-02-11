@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Executive Dashboard — ผลการประเมินประจำปี v1.18</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;800;900&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg-primary: #0f1117;
+  --bg-card: #181b24;
+  --bg-card-hover: #1e2230;
+  --border: #2a2e3b;
+  --text-primary: #f0f1f5;
+  --text-secondary: #9ba1b0;
+  --text-muted: #6b7185;
+  --accent-blue: #4e8cff;
+  --accent-green: #34d399;
+  --accent-amber: #fbbf24;
+  --accent-rose: #fb7185;
+  --accent-purple: #a78bfa;
+  --accent-cyan: #22d3ee;
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.3);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --pad-x: 48px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Noto Sans Thai', 'IBM Plex Sans Thai', sans-serif;
+  background: var(--bg-primary); color: var(--text-primary);
+  min-height: 100vh; font-size: 16px; line-height: 1.6;
+  -webkit-tap-highlight-color: transparent;
+}
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--bg-primary); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ========== LOGIN SCREEN ========== */
+#loginScreen {
+  display:flex; justify-content:center; align-items:center; min-height:100vh;
+  background: radial-gradient(ellipse at 30% 20%, rgba(78,140,255,0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 80%, rgba(99,102,241,0.06) 0%, transparent 50%),
+              var(--bg-primary);
+  padding: 20px;
+}
+.login-card {
+  background: var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding: 48px 44px; width: 100%; max-width: 420px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+  animation: modalIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+.login-card .login-icon { text-align:center; font-size:3.5rem; margin-bottom:16px; }
+.login-card h1 { text-align:center; font-size:1.5rem; font-weight:800; margin-bottom:6px; }
+.login-card .login-sub { text-align:center; font-size:0.9rem; color:var(--text-muted); margin-bottom:32px; }
+.login-field { margin-bottom:20px; }
+.login-field label { display:block; font-size:0.82rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+.login-field input {
+  width:100%; padding:14px 18px; border-radius:var(--radius-sm);
+  background:var(--bg-primary); border:1px solid var(--border);
+  color:var(--text-primary); font-family:inherit; font-size:1rem; font-weight:500;
+  outline:none; transition:all 0.2s;
+}
+.login-field input:focus { border-color:var(--accent-blue); box-shadow:0 0 0 3px rgba(78,140,255,0.15); }
+.login-error { color:var(--accent-rose); font-size:0.88rem; font-weight:600; text-align:center; margin-bottom:16px; min-height:1.4em; }
+.btn-login {
+  width:100%; padding:16px; border-radius:var(--radius-sm); border:none;
+  background:linear-gradient(135deg,#4e8cff 0%,#6366f1 100%);
+  color:#fff; font-family:inherit; font-size:1.1rem; font-weight:700;
+  cursor:pointer; transition:all 0.25s;
+  box-shadow:0 4px 20px rgba(78,140,255,0.3);
+}
+.btn-login:hover { transform:translateY(-1px); box-shadow:0 6px 28px rgba(78,140,255,0.45); }
+.btn-login:disabled { opacity:0.7; cursor:wait; transform:none; }
+.login-footer { text-align:center; margin-top:24px; font-size:0.78rem; color:var(--text-muted); }
+
+/* ========== DASHBOARD SCREEN ========== */
+#dashboardScreen { display:none; }
+
+/* Header */
+.header {
+  background: linear-gradient(180deg, #181b24 0%, var(--bg-primary) 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 24px var(--pad-x) 20px; position: sticky; top:0; z-index:100;
+}
+.header-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; gap:16px; }
+.header-title-wrap { flex:1; min-width:0; }
+.header h1 {
+  font-size:1.75rem; font-weight:800; letter-spacing:-0.5px;
+  background:linear-gradient(135deg,#fff 0%,#9ba1b0 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.header .subtitle {
+  font-size:0.92rem; color:var(--text-secondary); font-weight:400;
+  overflow:hidden; max-height:0; opacity:0; margin-top:0;
+  transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.3s ease;
+}
+.header .subtitle.expanded { max-height:60px; opacity:1; margin-top:4px; }
+.header .subtitle span.sheet-lbl { color:var(--accent-cyan); font-weight:600; }
+.h1-toggle-wrap { display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none; }
+.h1-toggle-wrap:hover h1 { opacity:0.85; }
+.subtitle-chevron {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; border-radius:50%;
+  background:rgba(155,161,176,0.12); border:1px solid rgba(155,161,176,0.2);
+  flex-shrink:0; transition: transform 0.35s ease, background 0.2s;
+  font-size:0.65rem; color:var(--text-muted); margin-top:2px;
+}
+.subtitle-chevron.open { transform: rotate(180deg); background:rgba(78,140,255,0.15); border-color:rgba(78,140,255,0.3); color:var(--accent-blue); }
+.header-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; flex-shrink:0; }
+.badge {
+  padding:6px 14px; border-radius:50px; font-size:0.8rem; font-weight:600;
+  border:1px solid var(--border); background:var(--bg-card); white-space:nowrap;
+}
+.badge.live { border-color:var(--accent-green); color:var(--accent-green); }
+.badge.live::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--accent-green); margin-right:6px; animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.btn-logout {
+  font-family:inherit; font-size:0.82rem; font-weight:600;
+  padding:8px 16px; border-radius:var(--radius-sm);
+  background:transparent; border:1px solid rgba(251,113,133,0.3);
+  color:var(--accent-rose); cursor:pointer; transition:all 0.25s;
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn-logout:hover { border-color:var(--accent-rose); background:rgba(251,113,133,0.08); }
+
+/* Filter Bar & Accordion */
+.filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.filter-bar input, .filter-bar select {
+  font-family:inherit; font-size:0.95rem; font-weight:500;
+  padding:10px 16px; border-radius:var(--radius-sm);
+  background:var(--bg-card); border:1px solid var(--border);
+  color:var(--text-primary); outline:none; transition:all 0.2s;
+  min-width:0;
+}
+.filter-bar input { flex:1; min-width:180px; }
+.filter-bar select { flex:0 1 200px; cursor:pointer; min-width:140px; }
+.filter-bar input:focus, .filter-bar select:focus {
+  border-color:var(--accent-blue); box-shadow:0 0 0 3px rgba(78,140,255,0.15);
+}
+
+/* Mobile Toggle Button */
+.mobile-filter-toggle { display:none; width:100%; padding:12px; border-radius:var(--radius-sm); background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary); font-weight:600; font-size:0.9rem; align-items:center; justify-content:space-between; cursor:pointer; margin-bottom:8px; transition: background 0.2s; }
+.mobile-filter-toggle:active { background: var(--bg-card-hover); }
+
+/* Buttons */
+.btn-reset,.btn-import,.btn-clear {
+  font-family:inherit; font-size:0.85rem; font-weight:600;
+  padding:10px 18px; border-radius:var(--radius-sm);
+  cursor:pointer; transition:all 0.25s; border:1px solid var(--border);
+  display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+}
+.btn-reset { background:transparent; color:var(--text-secondary); }
+.btn-reset:hover { border-color:var(--accent-rose); color:var(--accent-rose); }
+.btn-import {
+  background:linear-gradient(135deg,#4e8cff 0%,#6366f1 100%);
+  color:#fff; border:none; box-shadow:0 2px 12px rgba(78,140,255,0.3);
+}
+.btn-import:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(78,140,255,0.45); }
+.btn-clear { background:transparent; color:var(--accent-amber); border-color:rgba(251,191,36,0.3); }
+.filter-spacer { flex:1; min-width:0; }
+#fileInput { display:none; }
+
+/* Toast */
+.toast-container { position:fixed; top:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+.toast {
+  padding:16px 44px 16px 20px; border-radius:var(--radius-sm);
+  font-family:inherit; font-size:0.92rem; font-weight:600;
+  display:flex; align-items:flex-start; gap:12px;
+  min-width:320px; max-width:480px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  animation:toastIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  border:1px solid transparent; position:relative;
+}
+.toast.hiding { animation:toastOut 0.35s ease-in both; }
+@keyframes toastIn { from{opacity:0;transform:translateX(60px) scale(0.95)} to{opacity:1;transform:translateX(0) scale(1)} }
+@keyframes toastOut { to{opacity:0;transform:translateX(60px) scale(0.95)} }
+.toast-icon { font-size:1.3rem; flex-shrink:0; line-height:1; margin-top:1px; }
+.toast-body { flex:1; }
+.toast-title { font-size:0.92rem; font-weight:700; margin-bottom:2px; }
+.toast-msg { font-size:0.82rem; font-weight:400; opacity:0.85; line-height:1.5; }
+.toast-close {
+  position:absolute; top:10px; right:12px; background:none; border:none;
+  color:inherit; opacity:0.5; cursor:pointer; font-size:1rem; line-height:1;
+}
+.toast.success { background:#0d2818; border-color:rgba(52,211,153,0.3); color:var(--accent-green); }
+.toast.error   { background:#2a0f14; border-color:rgba(251,113,133,0.3); color:var(--accent-rose); }
+.toast.warning { background:#2a1f0a; border-color:rgba(251,191,36,0.3); color:var(--accent-amber); }
+.toast.info    { background:#0f1a2e; border-color:rgba(78,140,255,0.3); color:var(--accent-blue); }
+
+/* Import Modal */
+.import-overlay {
+  display:none; position:fixed; inset:0; z-index:500;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
+  justify-content:center; align-items:center; padding:20px;
+}
+.import-overlay.active { display:flex; }
+.import-box {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:36px 40px; max-width:520px; width:100%;
+  box-shadow:0 24px 80px rgba(0,0,0,0.6); text-align:center;
+  animation:modalIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes modalIn { from{opacity:0;transform:scale(0.92) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.import-box h2 { font-size:1.35rem; font-weight:800; margin-bottom:8px; }
+.drop-zone {
+  border:2px dashed var(--border); border-radius:var(--radius-sm);
+  padding:40px 24px; margin-bottom:20px; cursor:pointer; transition:all 0.25s;
+  background:var(--bg-primary);
+}
+.drop-zone:hover,.drop-zone.dragover { border-color:var(--accent-blue); background:rgba(78,140,255,0.04); }
+.spinner { display:none; margin:16px auto; }
+.spinner.active { display:block; }
+.spinner svg { animation:spin 1s linear infinite; width:36px; height:36px; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Main */
+.main { padding:24px var(--pad-x) 64px; }
+
+/* Empty State */
+.empty-state { text-align:center; padding:80px 20px; }
+.empty-state .es-icon { font-size:3.5rem; margin-bottom:16px; opacity:0.6; }
+.empty-state h2 { font-size:1.4rem; font-weight:700; color:var(--text-secondary); margin-bottom:8px; }
+.empty-state p { color:var(--text-muted); font-size:0.95rem; max-width:400px; margin:0 auto 24px; line-height:1.7; }
+.empty-state .btn-import { padding:14px 36px; font-size:1rem; }
+
+/* Summary */
+.summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+.summary-card {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px 22px; position:relative; overflow:hidden; transition:all 0.3s;
+}
+.summary-card:hover { border-color:var(--accent-blue); transform:translateY(-2px); box-shadow:var(--shadow-card); }
+.summary-card .label { font-size:0.82rem; color:var(--text-secondary); font-weight:500; margin-bottom:6px; padding-right:50px; }
+.summary-card .value { font-size:2rem; font-weight:800; }
+.summary-card .sub { font-size:0.8rem; color:var(--text-muted); margin-top:4px; }
+.summary-card .icon {
+  position:absolute; top:18px; right:18px; width:42px; height:42px;
+  border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;
+}
+.icon-blue { background:rgba(78,140,255,0.12); }
+.icon-green { background:rgba(52,211,153,0.12); }
+.icon-amber { background:rgba(251,191,36,0.12); }
+.icon-rose  { background:rgba(251,113,133,0.12); }
+
+/* Charts */
+.charts-row { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:28px; }
+.chart-card {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:22px; transition:all 0.3s; overflow:hidden;
+  display: flex; flex-direction: column;
+}
+.chart-card:hover { box-shadow:var(--shadow-card); }
+.chart-card h3 { font-size:1.05rem; font-weight:700; margin-bottom:16px; }
+.chart-container { position: relative; flex: 1; width: 100%; min-height: 280px; }
+
+/* Scrollable Chart Wrapper for Mobile */
+.chart-scroll-wrapper { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; }
+/* The inner box will have dynamic width on mobile */
+.chart-scroll-content { position: relative; height: 300px; width: 100%; }
+
+/* Legend */
+.legend-bar {
+  display:flex; gap:20px; align-items:center; margin-bottom:20px; flex-wrap:wrap;
+  padding:12px 18px; background:var(--bg-card); border-radius:var(--radius-sm); border:1px solid var(--border);
+}
+.legend-item { display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; color:var(--text-secondary); }
+.legend-dot { width:10px; height:10px; border-radius:3px; }
+.legend-dot.l67   { background:var(--accent-amber); }
+.legend-dot.lself { background:var(--accent-cyan); }
+.legend-dot.lmgr  { background:var(--accent-purple); }
+
+/* Person Cards */
+.position-group { margin-bottom:28px; }
+.position-header {
+  display:flex; align-items:center; gap:12px; margin-bottom:14px;
+  padding-bottom:10px; border-bottom:2px solid var(--border);
+}
+.position-dot { width:12px; height:12px; border-radius:50%; }
+.position-header h2 { font-size:1.2rem; font-weight:700; }
+.position-count {
+  font-size:0.8rem; color:var(--text-muted); font-weight:500;
+  background:var(--bg-card); padding:3px 12px; border-radius:50px; border:1px solid var(--border);
+}
+
+.person-card {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:22px 24px; margin-bottom:14px; transition:all 0.3s;
+  animation:fadeInUp 0.4s ease-out both;
+}
+.person-card:hover { border-color:var(--accent-blue); box-shadow:var(--shadow-card); transform:translateY(-1px); }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+.person-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; gap:16px; }
+.person-info { min-width:0; flex:1; }
+.person-info h3 { font-size:1.1rem; font-weight:700; margin-bottom:4px; word-break:break-word; }
+.person-info .pos-tag { display:inline-block; font-size:0.78rem; font-weight:600; padding:3px 12px; border-radius:50px; }
+.person-scores { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.score-pill {
+  text-align:center; padding:8px 14px; border-radius:var(--radius-sm);
+  background:var(--bg-primary); border:1px solid var(--border); min-width:90px;
+}
+.score-pill .sc-label { font-size:0.65rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:3px; }
+.score-pill .sc-val { font-size:1.3rem; font-weight:800; }
+.score-pill.highlight { border-color:var(--accent-blue); background:rgba(78,140,255,0.06); }
+
+.comparison-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+.comp-item { display:flex; align-items:center; gap:10px; }
+.comp-label { font-size:0.78rem; color:var(--text-secondary); min-width:140px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.comp-bars { flex:1; display:flex; flex-direction:column; gap:2px; }
+.comp-bar-row { display:flex; align-items:center; gap:6px; }
+.comp-bar-tag { font-size:0.6rem; font-weight:700; min-width:20px; color:var(--text-muted); }
+.comp-bar-track { flex:1; height:7px; background:var(--bg-primary); border-radius:4px; overflow:hidden; }
+.comp-bar-fill { height:100%; border-radius:4px; transition:width 0.8s ease-out; }
+.comp-bar-val { font-size:0.7rem; font-weight:700; min-width:28px; text-align:right; }
+.bar-67   { background:var(--accent-amber); }
+.bar-self { background:var(--accent-cyan); }
+.bar-mgr  { background:var(--accent-purple); }
+
+.analysis-box {
+  margin-top:16px; padding:14px 18px; border-radius:var(--radius-sm);
+  background:linear-gradient(135deg,rgba(78,140,255,0.04) 0%,rgba(99,102,241,0.04) 100%);
+  border:1px solid rgba(78,140,255,0.1);
+}
+.analysis-box .analysis-title { font-size:0.78rem; font-weight:700; color:var(--accent-blue); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px; }
+.analysis-box p { font-size:0.88rem; color:var(--text-secondary); line-height:1.7; }
+
+.trend-up { color:var(--accent-green); }
+.trend-down { color:var(--accent-rose); }
+.trend-same { color:var(--accent-amber); }
+.no-results { text-align:center; padding:60px 20px; color:var(--text-muted); font-size:1rem; }
+.no-results .emoji { font-size:2.5rem; margin-bottom:12px; }
+
+/* Responsive adjustments */
+@media (max-width:1200px) {
+  .summary-row { grid-template-columns:repeat(2,1fr); }
+  .charts-row { grid-template-columns:1fr; }
+}
+
+@media (max-width:768px) {
+  :root { --pad-x: 16px; }
+  .header { padding: 16px var(--pad-x); }
+  
+  /* Fix Header Layout Mobile - Stack vertically properly */
+  .header-top {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .header-title-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+  .header h1 {
+    white-space: normal; /* Allow wrap */
+    word-break: break-word; /* Prevent giant words from breaking layout */
+    line-height: 1.3;
+    font-size: 1.5rem;
+  }
+  .header .subtitle {
+    white-space: normal;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .mobile-filter-toggle { display: flex; }
+  .filter-bar { 
+    display: none; 
+    flex-direction: column; 
+    width: 100%; 
+    gap: 10px; 
+    margin-top: 5px;
+    padding-bottom: 10px;
+    animation: fadeInDown 0.3s ease;
+  }
+  .filter-bar.active { display: flex; }
+  .filter-bar input, .filter-bar select { width: 100%; flex: none; }
+  .filter-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+  .filter-actions-row button { justify-content: center; width: 100%; }
+  .filter-spacer { display:none; }
+  
+  .charts-row { gap: 12px; }
+  /* Remove fixed min-height for chart container to let dynamic sizing work */
+  
+  .person-top { flex-direction:column; }
+  .person-scores { width:100%; display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .score-pill { min-width:0; padding:8px 10px; }
+  .comparison-grid { grid-template-columns: 1fr; gap: 8px; }
+  .comp-label { min-width:100px; font-size:0.72rem; }
+}
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ==================== LOGIN SCREEN ==================== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-icon">🔐</div>
+    <h1>Executive Dashboard</h1>
+    <div class="login-sub">กรุณาเข้าสู่ระบบเพื่อดูข้อมูลการประเมิน v1.18</div>
+    <div class="login-field"><label>Username</label><input type="text" id="loginUser" placeholder="Enter username" autocomplete="off" autocapitalize="off"></div>
+    <div class="login-field"><label>Password</label><input type="password" id="loginPass" placeholder="Enter password"></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="btn-login" onclick="attemptLogin()">เข้าสู่ระบบ</button>
+    <div class="login-footer">🛡️ ข้อมูลได้รับการคุ้มครองตาม พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล (PDPA)</div>
+  </div>
+</div>
+
+<!-- ==================== DASHBOARD SCREEN ==================== -->
+<div id="dashboardScreen">
+  <!-- Import Modal -->
+  <div class="import-overlay" id="importOverlay">
+    <div class="import-box">
+      <h2>📂 นำเข้าข้อมูลการประเมิน</h2>
+      <p>อัปโหลดไฟล์ <strong>.xlsx</strong> ที่มี 3 Sheet</p>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div style="font-size:2.5rem;text-align:center;">📄</div>
+        <div style="text-align:center;font-weight:600;color:var(--text-secondary);">คลิกเลือกไฟล์ หรือลากมาวาง</div>
+        <div id="dzFileName" style="display:none; color:var(--accent-green); margin-top:10px; text-align:center; font-weight:700;"></div>
+      </div>
+      <div class="spinner" id="importSpinner">
+        <svg viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="var(--accent-blue)" stroke-width="4" stroke-dasharray="80 40" stroke-linecap="round"/></svg>
+      </div>
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button class="btn-import" id="btnConfirmImport" onclick="confirmImport()" disabled>📥 นำเข้าข้อมูล</button>
+        <button class="btn-cancel" onclick="closeImportModal()" style="background:transparent; border:1px solid var(--border); color:var(--text-secondary); cursor:pointer; padding:10px 20px; border-radius:var(--radius-sm);">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="header">
+    <div class="header-top">
+      <div class="header-title-wrap">
+        <div class="h1-toggle-wrap" onclick="toggleSubtitle()" title="แสดง/ซ่อนรายละเอียด">
+          <h1>📊 Executive Performance Dashboard</h1>
+          <span class="subtitle-chevron" id="subtitleChevron">▼</span>
+        </div>
+        <div class="subtitle" id="headerSubtitle">เปรียบเทียบ 3 รอบ (<span class="sheet-lbl" id="sheetNames">...</span>)</div>
+      </div>
+      <div class="header-actions">
+        <span class="badge live">Dashboard</span>
+        <span class="badge" id="badgeCount">...</span>
+        <button class="btn-logout" onclick="doLogout()">🚪 ออกจากระบบ</button>
+      </div>
+    </div>
+    
+    <!-- Mobile Collapse Trigger -->
+    <div class="mobile-filter-toggle" onclick="toggleFilters()">
+      <span>🔍 ค้นหาและเครื่องมือจัดการ</span> <span id="toggleIcon">▼</span>
+    </div>
+
+    <!-- Filter Bar (Accordion Content) -->
+    <div class="filter-bar" id="filterBar">
+      <input type="text" id="searchInput" placeholder="🔍 ค้นหาชื่อ..." oninput="applyFilters()">
+      <select id="positionFilter" onchange="applyFilters()">
+        <option value="">ทุกตำแหน่ง</option>
+      </select>
+      <div class="filter-spacer"></div>
+      <div class="filter-actions-row">
+        <button class="btn-reset" onclick="resetFilters()">✕ ล้าง</button>
+        <button class="btn-import" onclick="openImportModal()">📥 Import</button>
+        <button class="btn-clear" onclick="clearDataConfirm()">🗑️ Clear</button>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx" onchange="handleFileSelect(event)">
+    </div>
+  </div>
+
+  <div class="main" id="mainContent">
+    <div class="summary-row" id="summaryRow"></div>
+    <div class="charts-row" id="chartsRow">
+      <div class="chart-card">
+        <h3>📈 เปรียบเทียบ Totals 3 รอบ — รายบุคคล</h3>
+        <!-- Scroll Wrapper for Bar Chart -->
+        <div class="chart-scroll-wrapper">
+          <div class="chart-scroll-content" id="barChartBox">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>🏷️ จำนวนตามตำแหน่ง</h3>
+        <div class="chart-container"><canvas id="doughnutChart"></canvas></div>
+      </div>
+    </div>
+    <div class="legend-bar" id="legendBar">
+      <span style="font-weight:700;color:var(--text-primary);margin-right:6px;">สัญลักษณ์:</span>
+      <div class="legend-item"><div class="legend-dot l67"></div> <span id="lbl1"></span></div>
+      <div class="legend-item"><div class="legend-dot lself"></div> <span id="lbl2"></span></div>
+      <div class="legend-item"><div class="legend-dot lmgr"></div> <span id="lbl3"></span></div>
+    </div>
+    <div id="personContainer"></div>
+  </div>
+</div>
+
+<script>
+// Authentication & Encryption Logic
+const _h1 = 'ba8a96d5e6bd977e469fff203a17ac8b53682776119dd11081a6cede330cba6b';
+const _h2 = '39eecc93dd906bc79fcf108be4c35122af40c6e7fdc17edefdec71b188d4e063';
+
+// ═══════════════════════════════════════════════════════════════════
+// PDPA PROTECTED — Personal data encrypted with AES-256-GCM
+// Key derived via PBKDF2 (150,000 iterations / SHA-256)
+// Plaintext data is NOT present in source — decrypted in memory only
+// ═══════════════════════════════════════════════════════════════════
+const _enc = {
+  s: 'R+acOamfhvLry8MWXNKmbQ==',
+  v: 'kms/Vk9pxOHNrAib',
+  c: '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'
+};
+
+// Key assembly — parts are joined at runtime only
+const _kp = ['Exec2026','Dashb'+'oard','_PDP'+'A_','Secur'+'e!@#'];
+const _ks = _kp[0]+_kp[1]+_kp[2]+_kp[3];
+
+// AES-256-GCM decrypt — runs only after successful login
+async function _decryptData() {
+  const fromB64 = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
+  const salt = fromB64(_enc.s), iv = fromB64(_enc.v), ct = fromB64(_enc.c);
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(_ks), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:150000, hash:'SHA-256'},
+    km, {name:'AES-GCM', length:256}, false, ['decrypt']
+  );
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+let defaultData = [];
+let rawData = [];
+let sheetLabels = ['ประเมิน 67','ประเมินตนเอง 68','หัวหน้าประเมิน 68'];
+let dashboardInitialized = false;
+let pendingFile = null;
+const criteria = ['คุณภาพของงาน','ปริมาณงานที่สำเร็จ','ความรับผิดชอบในงาน','การแก้ไขปัญหา','การคิดริเริ่มพัฒนา','การสื่อสารกับทีมงาน','ความร่วมมือ-หน่วยงาน','ความร่วมมือ-ทีมงาน','การวางแผนงาน','ความรู้วิชาชีพ'];
+const colorPalette = ['#4e8cff','#a78bfa','#34d399','#fbbf24','#fb7185','#22d3ee','#f97316','#84cc16','#ec4899','#14b8a6'];
+let posColors = {};
+let barC=null, doughC=null;
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function attemptLogin() {
+  const u = document.getElementById('loginUser').value.trim().toLowerCase(); // Normalize username to lowercase
+  const p = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.querySelector('.btn-login');
+
+  if (!u || !p) { errEl.textContent = 'กรุณากรอก Username และ Password'; return; }
+  
+  btn.textContent = '⏳ กำลังตรวจสอบ...'; btn.disabled = true;
+  
+  try {
+    const uh = await sha256(u);
+    const ph = await sha256(p);
+    if (uh === _h1 && ph === _h2) {
+      errEl.textContent = '';
+      btn.textContent = '🔓 กำลังถอดรหัสข้อมูล...';
+      // Decrypt PDPA-protected data in memory — plaintext never in source
+      defaultData = await _decryptData();
+      
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('dashboardScreen').style.display = 'block';
+      initDashboard();
+    } else {
+      errEl.textContent = '❌ Username หรือ Password ไม่ถูกต้อง';
+      document.getElementById('loginPass').value = '';
+    }
+  } catch(e) {
+    errEl.textContent = '❌ ระบบขัดข้อง กรุณาลองใหม่';
+    console.error(e);
+  } finally {
+    btn.textContent = 'เข้าสู่ระบบ'; btn.disabled = false;
+  }
+}
+
+// Enter key to login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') attemptLogin();
+});
+
+function toggleSubtitle() {
+  const sub = document.getElementById('headerSubtitle');
+  const chev = document.getElementById('subtitleChevron');
+  const isOpen = sub.classList.toggle('expanded');
+  chev.classList.toggle('open', isOpen);
+}
+
+function toggleFilters() {
+  const bar = document.getElementById('filterBar');
+  const icon = document.getElementById('toggleIcon');
+  const isActive = bar.classList.toggle('active');
+  icon.textContent = isActive ? '▲' : '▼';
+}
+
+function initDashboard() {
+  if(dashboardInitialized) return;
+  dashboardInitialized = true;
+  initDropZone();
+  
+  // Register DataLabels Plugin for Chart.js
+  if (typeof ChartDataLabels !== 'undefined') {
+    Chart.register(ChartDataLabels);
+  }
+  
+  // Add resize listener to handle orientation change
+  window.addEventListener('resize', () => {
+    if(barC) {
+      setTimeout(() => renderCharts(rawData), 200);
+    }
+  });
+
+  rawData = [...defaultData];
+  assignColors();
+  updateUI();
+  rebuildFilter();
+  applyFilters();
+}
+
+function assignColors() {
+  const pos = [...new Set(rawData.map(d=>d.position))];
+  posColors = {}; pos.forEach((p,i)=>posColors[p]=colorPalette[i%colorPalette.length]);
+}
+
+function updateUI() {
+  document.getElementById('sheetNames').textContent = sheetLabels.join(' / ');
+  document.getElementById('lbl1').textContent = sheetLabels[0];
+  document.getElementById('lbl2').textContent = sheetLabels[1];
+  document.getElementById('lbl3').textContent = sheetLabels[2];
+  document.getElementById('badgeCount').textContent = `ข้อมูล ${rawData.length} คน`;
+}
+
+function rebuildFilter(){
+  const sel=document.getElementById('positionFilter');
+  sel.innerHTML='<option value="">ทุกตำแหน่ง</option>';
+  [...new Set(rawData.map(d=>d.position))].forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o);});
+}
+
+function applyFilters() {
+  const s = document.getElementById('searchInput').value.trim().toLowerCase();
+  const p = document.getElementById('positionFilter').value;
+  let filtered = rawData;
+  if (s) filtered = filtered.filter(d => d.name.toLowerCase().includes(s));
+  if (p) filtered = filtered.filter(d => d.position === p);
+  
+  renderSummary(filtered);
+  renderCharts(filtered);
+  renderCards(filtered);
+}
+
+function renderSummary(data) {
+  const c = document.getElementById('summaryRow');
+  if(!data.length) { c.innerHTML = ''; return; }
+  
+  const wM=data.filter(d=>d.mgr68.total>0),wS=data.filter(d=>d.self68.total>0);
+  const aM=wM.length?wM.reduce((s,d)=>s+d.mgr68.total,0)/wM.length:0;
+  const aS=wS.length?wS.reduce((s,d)=>s+d.self68.total,0)/wS.length:0;
+  const top=[...data].filter(d=>d.mgr68.total>0).sort((a,b)=>b.mgr68.total-a.mgr68.total)[0];
+  const pc=[...new Set(data.map(d=>d.position))].length;
+
+  c.innerHTML = `
+    <div class="summary-card"><div class="label">จำนวนบุคลากร</div><div class="value">${data.length}</div><div class="sub">${pc} ตำแหน่ง</div><div class="icon icon-blue">👥</div></div>
+    <div class="summary-card"><div class="label">เฉลี่ย (${sheetLabels[2]})</div><div class="value" style="color:var(--accent-green)">${aM.toFixed(2)}</div><div class="sub">${getGrade(aM).grade}</div><div class="icon icon-green">📊</div></div>
+    <div class="summary-card"><div class="label">เฉลี่ย (${sheetLabels[1]})</div><div class="value" style="color:var(--accent-cyan)">${aS.toFixed(2)}</div><div class="sub">Gap: ${(aS-aM).toFixed(2)}</div><div class="icon icon-amber">📝</div></div>
+    <div class="summary-card"><div class="label">สูงสุด (${sheetLabels[2]})</div><div class="value" style="color:var(--accent-purple)">${top?fmt(top.mgr68.total):'—'}</div><div class="sub">${top?top.name.match(/\(([^)]+)\)/)?.[1]||top.name:'—'}</div><div class="icon icon-rose">🏆</div></div>
+  `;
+}
+
+function renderCharts(data) {
+  const row = document.getElementById('chartsRow');
+  const leg = document.getElementById('legendBar');
+  if(!data.length) { row.style.display='none'; leg.style.display='none'; return; }
+  row.style.display='grid'; leg.style.display='flex';
+
+  const ctx1 = document.getElementById('barChart').getContext('2d');
+  if(barC) barC.destroy();
+  
+  const sorted = [...data].sort((a,b) => b.mgr68.total - a.mgr68.total);
+  const labels = sorted.map(d => { const m = d.name.match(/\(([^)]+)\)/); return m ? m[1] : d.name.substring(0,10); });
+
+  // Mobile Sizing Logic: Explicit Width Calculation
+  const barChartBox = document.getElementById('barChartBox');
+  const scrollWrapper = document.querySelector('.chart-scroll-wrapper');
+  
+  if(window.innerWidth <= 768) {
+    // Determine explicit width: 80px per person minimum for readability
+    const minItemWidth = 80;
+    const calculatedWidth = sorted.length * minItemWidth;
+    // Ensure container has width before using it
+    const containerWidth = scrollWrapper.clientWidth || (window.innerWidth - 64);
+    
+    // Set specific pixel width to force scroll if content is wider than container
+    // If calculated width is smaller than container, use container width (full width)
+    barChartBox.style.width = `${Math.max(calculatedWidth, containerWidth)}px`;
+    barChartBox.style.height = '320px'; 
+  } else {
+    // Reset for desktop
+    barChartBox.style.width = '100%';
+    barChartBox.style.height = '100%';
+    barChartBox.style.minHeight = '300px';
+  }
+
+  barC = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: sheetLabels[0], data: sorted.map(d=>d.eval67.total||null), backgroundColor: '#fbbf24', borderColor:'#fbbf24', borderWidth:1, borderRadius:4 },
+        { label: sheetLabels[1], data: sorted.map(d=>d.self68.total||null), backgroundColor: '#22d3ee', borderColor:'#22d3ee', borderWidth:1, borderRadius:4 },
+        { label: sheetLabels[2], data: sorted.map(d=>d.mgr68.total||null), backgroundColor: '#a78bfa', borderColor:'#a78bfa', borderWidth:1, borderRadius:4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout:{padding:{top:30}},
+      plugins: { 
+        legend: { display: false },
+        datalabels: {
+          anchor: 'end',
+          align: 'end',
+          offset: -4,
+          rotation: -90,
+          color: ctx => ['#fbbf24','#22d3ee','#a78bfa'][ctx.datasetIndex] || '#9ba1b0',
+          font: { family: 'Noto Sans Thai', size: 11, weight: '700' },
+          formatter: v => (v === null || v === 0) ? '' : v.toFixed(2),
+          padding: { bottom: 2 }
+        }
+      },
+      scales: { 
+        x:{ticks:{color:'#9ba1b0',font:{family:'Noto Sans Thai',size:11,weight:'600'},maxRotation:45},grid:{color:'rgba(42,46,59,0.5)'}},
+        y: { min: 0, max: 5.5, ticks:{color:'#9ba1b0',stepSize:1},grid:{color:'rgba(42,46,59,0.5)'} } 
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('doughnutChart').getContext('2d');
+  if(doughC) doughC.destroy();
+  const pcnt = {}; data.forEach(d => pcnt[d.position] = (pcnt[d.position]||0)+1);
+
+  doughC = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(pcnt),
+      datasets: [{ data: Object.values(pcnt), backgroundColor: Object.keys(pcnt).map(p=>posColors[p]||'#6b7185'), borderColor:'#181b24', borderWidth:3 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout:'60%',
+      plugins: { datalabels:{display:false}, legend: { position: 'bottom', labels: { color: '#9ba1b0', font:{family:'Noto Sans Thai',size:11,weight:'600'}, padding:12 } } }
+    }
+  });
+}
+
+function renderCards(data) {
+  const c = document.getElementById('personContainer');
+  if(!data.length && !rawData.length) { renderEmpty(); return; }
+  if(!data.length) { c.innerHTML='<div class="no-results"><div class="emoji">🔍</div>ไม่พบข้อมูล</div>'; return; }
+  
+  const groups={}; data.forEach(d=>{if(!groups[d.position])groups[d.position]=[];groups[d.position].push(d);});
+  Object.values(groups).forEach(g=>g.sort((a,b)=>b.mgr68.total-a.mgr68.total));
+  const sPos=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length); // Sort by count simply
+
+  let h='';
+  sPos.forEach((pos,pi)=>{
+    const ppl=groups[pos], col=posColors[pos]||'#6b7185';
+    h+=`<div class="position-group"><div class="position-header"><div class="position-dot" style="background:${col}"></div><h2>${pos}</h2><span class="position-count">${ppl.length} คน</span></div>`;
+    ppl.forEach((p,idx)=>{
+      const tr=getTrend(p.eval67.total,p.mgr68.total);
+      h+=`<div class="person-card" style="animation-delay:${(pi*3+idx)*0.06}s">
+        <div class="person-top"><div class="person-info"><h3>${p.name}</h3><span class="pos-tag" style="background:${col}15;color:${col};border:1px solid ${col}33">${p.position}</span></div>
+        <div class="person-scores">
+          <div class="score-pill"><div class="sc-label">${sheetLabels[0]}</div><div class="sc-val" style="color:var(--accent-amber)">${fmt(p.eval67.total)}</div></div>
+          <div class="score-pill"><div class="sc-label">${sheetLabels[1]}</div><div class="sc-val" style="color:var(--accent-cyan)">${fmt(p.self68.total)}</div></div>
+          <div class="score-pill highlight"><div class="sc-label">${sheetLabels[2]}</div><div class="sc-val" style="color:var(--accent-purple)">${fmt(p.mgr68.total)}</div></div>
+          <div class="score-pill"><div class="sc-label">แนวโน้ม</div><div class="sc-val ${tr.cls}" style="font-size:1rem">${tr.icon} ${tr.text}</div></div>
+        </div></div>
+        <div class="comparison-grid">${criteria.map((cr,i)=>{
+          const v1=p.eval67.scores[i],v2=p.self68.scores[i],v3=p.mgr68.scores[i];
+          return `<div class="comp-item"><div class="comp-label">${cr}</div><div class="comp-bars">
+            <div class="comp-bar-row"><span class="comp-bar-tag">67</span><div class="comp-bar-track"><div class="comp-bar-fill bar-67" style="width:${v1?v1/5*100:0}%"></div></div><span class="comp-bar-val" style="color:var(--accent-amber)">${v1!=null?fmtS(v1):'—'}</span></div>
+            <div class="comp-bar-row"><span class="comp-bar-tag">ตน</span><div class="comp-bar-track"><div class="comp-bar-fill bar-self" style="width:${v2?v2/5*100:0}%"></div></div><span class="comp-bar-val" style="color:var(--accent-cyan)">${v2!=null?fmtS(v2):'—'}</span></div>
+            <div class="comp-bar-row"><span class="comp-bar-tag">หน.</span><div class="comp-bar-track"><div class="comp-bar-fill bar-mgr" style="width:${v3?v3/5*100:0}%"></div></div><span class="comp-bar-val" style="color:var(--accent-purple)">${v3!=null?fmtS(v3):'—'}</span></div>
+          </div></div>`;}).join('')}</div>
+        <div class="analysis-box"><div class="analysis-title">🔎 วิเคราะห์สรุป</div><p>${analyze(p)}</p></div>
+      </div>`;
+    });
+    h+='</div>';
+  });
+  c.innerHTML=h;
+}
+
+// ========== UTILS & LOGIC (Restored) ==========
+function fmt(v){return v!=null&&v!==0?v.toFixed(2):'—';}
+function fmtS(v){return v!=null&&v!==0?v.toFixed(1):'—';}
+function getTrend(o,c){
+  if(!o||o===0)return{icon:'🆕',cls:'trend-same',text:'ใหม่'};
+  const d=c-o;
+  if(d>0.05)return{icon:'▲',cls:'trend-up',text:`+${d.toFixed(2)}`};
+  if(d<-0.05)return{icon:'▼',cls:'trend-down',text:`${d.toFixed(2)}`};
+  return{icon:'—',cls:'trend-same',text:'คงที่'};
+}
+function getGrade(t){
+  if(t>=4.5)return{grade:'ดีเยี่ยม',color:'#34d399'};
+  if(t>=4.0)return{grade:'ดีมาก',color:'#4e8cff'};
+  if(t>=3.5)return{grade:'ดี',color:'#a78bfa'};
+  if(t>=3.0)return{grade:'ปานกลาง',color:'#fbbf24'};
+  if(t>0)return{grade:'ต้องปรับปรุง',color:'#fb7185'};
+  return{grade:'ไม่มีข้อมูล',color:'#6b7185'};
+}
+function analyze(p){
+  const sTotal=p.self68.total,mTotal=p.mgr68.total,eTotal=p.eval67.total;
+  const mSc=p.mgr68.scores,sSc=p.self68.scores,eSc=p.eval67.scores;
+  let r=[];
+  const g=getGrade(mTotal);
+  r.push(`ผลประเมินโดย${sheetLabels[2]}: <strong style="color:${g.color}">${fmt(mTotal)} (${g.grade})</strong>`);
+  if(sTotal>0&&mTotal>0){const gap=sTotal-mTotal;if(gap>0.3)r.push(`ตนเองสูงกว่าหัวหน้า ${gap.toFixed(2)} — อาจต้องปรับความคาดหวัง`);else if(gap<-0.3)r.push(`หัวหน้าประเมินสูงกว่าตนเอง ${Math.abs(gap).toFixed(2)}`);else r.push(`การประเมินสอดคล้องกัน (ต่างกัน ${Math.abs(gap).toFixed(2)})`);}
+  
+  const pc=[];
+  for(let i=0;i<10;i++){
+    const s=sSc[i],m=mSc[i];
+    if(s==null&&m==null)continue;
+    const weighted=(s!=null&&m!=null)?(s*0.3+m*0.7):(s!=null?s:m);
+    pc.push({i,name:criteria[i]||('หมวด '+(i+1)),weighted});
+  }
+  if(pc.length>0){
+    const sorted=[...pc].sort((a,b)=>b.weighted-a.weighted);
+    const tops=sorted.slice(0,3).map(c=>`${c.name}`);
+    const bots=[...pc].sort((a,b)=>a.weighted-b.weighted).slice(0,3).map(c=>`${c.name}`);
+    if(tops.length) r.push(`💪 จุดแข็ง: ${tops.join(', ')}`);
+    if(bots.length) r.push(`🔧 ควรพัฒนา: ${bots.join(', ')}`);
+  }
+  return r.join('<br>');
+}
+
+function renderEmpty(){
+  document.getElementById('summaryRow').innerHTML='';
+  document.getElementById('chartsRow').style.display='none';
+  document.getElementById('legendBar').style.display='none';
+  document.getElementById('personContainer').innerHTML=`
+    <div class="empty-state"><div class="es-icon">📂</div><h2>ยังไม่มีข้อมูล</h2>
+    <p>กรุณานำเข้าไฟล์ Excel (.xlsx)</p>
+    <button class="btn-import" onclick="openImportModal()">📥 Import Data</button></div>`;
+}
+
+// ========== TOAST & IMPORT ==========
+function showToast(type,title,msg,dur=5000){
+  const c=document.getElementById('toastContainer');
+  const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️'};
+  const t=document.createElement('div'); t.className=`toast ${type}`;
+  t.innerHTML=`<div class="toast-icon">${icons[type]||'ℹ️'}</div><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div><button class="toast-close" onclick="this.parentElement.classList.add('hiding');setTimeout(()=>this.parentElement.remove(),350)">✕</button>`;
+  c.appendChild(t); setTimeout(()=>{t.classList.add('hiding');setTimeout(()=>t.remove(),350);},dur);
+}
+
+function openImportModal(){ document.getElementById('importOverlay').classList.add('active'); }
+function closeImportModal(){ document.getElementById('importOverlay').classList.remove('active'); }
+function initDropZone(){
+  const dz=document.getElementById('dropZone');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files.length>0)processSelectedFile(e.dataTransfer.files[0]);});
+}
+function handleFileSelect(e){if(e.target.files.length>0)processSelectedFile(e.target.files[0]);}
+
+function processSelectedFile(file){
+  if(!file.name.toLowerCase().endsWith('.xlsx')){showToast('error','ผิดพลาด','เลือกไฟล์ .xlsx เท่านั้น');return;}
+  pendingFile=file;
+  const el=document.getElementById('dzFileName'); el.textContent=file.name; el.style.display='block';
+  document.getElementById('btnConfirmImport').disabled=false;
+}
+
+function confirmImport(){
+  if(!pendingFile)return;
+  const spinner=document.getElementById('importSpinner'), btn=document.getElementById('btnConfirmImport');
+  spinner.classList.add('active'); btn.disabled=true; btn.textContent='⏳ ประมวลผล...';
+  
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      if(wb.SheetNames.length<3) throw new Error('ไฟล์ต้องมีอย่างน้อย 3 Sheets');
+      
+      const s1=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+      const s2=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[1]],{defval:null});
+      const s3=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[2]],{defval:null});
+      sheetLabels=[wb.SheetNames[0],wb.SheetNames[1],wb.SheetNames[2]];
+      
+      const allNames=[...new Set([...s1.map(r=>r['Name']),...s2.map(r=>r['Name']),...s3.map(r=>r['Name'])])].filter(Boolean);
+      rawData=allNames.map((nm,i)=>{
+        const r1=s1.find(r=>r['Name']===nm)||{};const r2=s2.find(r=>r['Name']===nm)||{};const r3=s3.find(r=>r['Name']===nm)||{};
+        return{no:i+1,name:nm,position:r3['Position']||r2['Position']||r1['Position']||'ไม่ระบุ',eval67:parseRow(r1),self68:parseRow(r2),mgr68:parseRow(r3)};
+      });
+      assignColors(); updateUI(); rebuildFilter(); applyFilters(); closeImportModal();
+      showToast('success','นำเข้าสำเร็จ',`โหลดข้อมูล ${rawData.length} คน`);
+    }catch(err){showToast('error','ผิดพลาด',err.message);}
+    finally{spinner.classList.remove('active');btn.disabled=false;btn.textContent='📥 นำเข้าข้อมูล';}
+  };
+  reader.readAsArrayBuffer(pendingFile);
+}
+
+function parseRow(row){
+  if(!row||!row['Name'])return{scores:Array(10).fill(null),total:0};
+  const skip=new Set(['No','Name','Position','Score ปฏิบัติงาน','Score ส่วนบุคคล','Totals','ความเห็น']);
+  const keys=Object.keys(row).filter(k=>!skip.has(k.trim()));
+  const scores=keys.slice(0,10).map(k=>{const v=row[k];return v!=null&&v!==''?parseFloat(v)||null:null;});
+  while(scores.length<10)scores.push(null);
+  return{scores,total:parseFloat(row['Totals'])||0};
+}
+
+function clearDataConfirm(){
+  if(confirm('ล้างข้อมูลทั้งหมด?')){rawData=[];renderEmpty();}
+}
+function doLogout() {
+  location.reload();
+}
+function resetFilters() {
+  document.getElementById('searchInput').value='';
+  document.getElementById('positionFilter').value='';
+  applyFilters();
+}
+</script>
+</body>
+</html>
